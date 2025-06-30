@@ -26,12 +26,27 @@ def transform(data: dict) -> pd.DataFrame:
                 shipment_weight_kg = td.get("shipmentWeight", {}).get("value")
                 pickup_info = td.get("shipperAddress", {})
                 drop_info = td.get("destinationAddress", {})
+                # Robust pickup postal code
                 pickup_pincode = pickup_info.get("postalCode", "")
                 pickup_city = pickup_info.get("city", "")
                 pickup_state = pickup_info.get("stateOrProvinceCode", "")
+                # Robust drop postal code
                 drop_pincode = drop_info.get("postalCode", "")
                 drop_city = drop_info.get("city", "")
                 drop_state = drop_info.get("stateOrProvinceCode", "")
+                # If postal code missing, try to get from events
+                if not pickup_pincode:
+                    for ev in td.get("events", []):
+                        if ev.get("eventType") == "PU":
+                            pickup_pincode = ev.get("address", {}).get("postalCode", "")
+                            if pickup_pincode:
+                                break
+                if not drop_pincode:
+                    for ev in td.get("events", []):
+                        if ev.get("eventType") in ("DL", "OD"):
+                            drop_pincode = ev.get("address", {}).get("postalCode", "")
+                            if drop_pincode:
+                                break
                 # Find pickup and delivery datetimes
                 pickup_dt = delivery_dt = None
                 for dt in td.get("datesOrTimes", []):
@@ -39,6 +54,24 @@ def transform(data: dict) -> pd.DataFrame:
                         pickup_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
                     if dt.get("type") == "ACTUAL_DELIVERY":
                         delivery_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
+                # Out for Delivery datetimes (all OD events)
+                od_datetimes = []
+                for ev in td.get("events", []):
+                    if ev.get("eventType") == "OD":
+                        ts = ev.get("timestamp")
+                        if isinstance(ts, dict) and "$numberLong" in ts:
+                            ts_val = int(ts["$numberLong"]) / 1000
+                            dt_ist = pd.to_datetime(ts_val, unit="s", utc=True).tz_convert("Asia/Kolkata")
+                        else:
+                            # fallback: try to parse as string
+                            dt_ist = None
+                            if isinstance(ts, str):
+                                try:
+                                    dt_ist = parser.parse(ts).astimezone(pytz.timezone("Asia/Kolkata"))
+                                except Exception:
+                                    pass
+                        if dt_ist is not None:
+                            od_datetimes.append(dt_ist.strftime("%Y-%m-%d %H:%M:%S %Z"))
                 # Count delivery attempts (OD + DL events)
                 delivery_attempts = 0
                 for ev in td.get("events", []):
@@ -57,6 +90,7 @@ def transform(data: dict) -> pd.DataFrame:
                     "drop_pincode": drop_pincode,
                     "drop_city": drop_city,
                     "drop_state": drop_state,
+                    "out_for_delivery_datetimes": ";".join(od_datetimes),
                     "delivery_attempts_count": delivery_attempts
                 })
         df = pd.DataFrame(records)
@@ -74,6 +108,7 @@ def transform(data: dict) -> pd.DataFrame:
             "drop_pincode",
             "drop_city",
             "drop_state",
+            "out_for_delivery_datetimes",
             "delivery_attempts_count"
         ]]
         # Rename for output spec
@@ -94,6 +129,7 @@ def transform(data: dict) -> pd.DataFrame:
             "drop_pincode",
             "drop_city",
             "drop_state",
+            "out_for_delivery_datetimes",
             "delivery_attempts"
         ]]
         log_and_print(f"transform(data) complete. Shape: {df.shape}", "info")
