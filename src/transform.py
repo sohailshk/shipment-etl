@@ -54,34 +54,37 @@ def transform(data: dict) -> pd.DataFrame:
                         pickup_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
                     if dt.get("type") == "ACTUAL_DELIVERY":
                         delivery_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
-                # Out for Delivery datetimes (all OD events)
-                od_datetimes = []
+                # Out for Delivery datetimes (all OD events, unique, sorted)
+                od_datetimes_set = set()
                 for ev in td.get("events", []):
                     if ev.get("eventType") == "OD":
                         ts = ev.get("timestamp")
+                        dt_ist = None
                         if isinstance(ts, dict) and "$numberLong" in ts:
                             ts_val = int(ts["$numberLong"]) / 1000
                             dt_ist = pd.to_datetime(ts_val, unit="s", utc=True).tz_convert("Asia/Kolkata")
-                        else:
-                            # fallback: try to parse as string
-                            dt_ist = None
-                            if isinstance(ts, str):
-                                try:
-                                    dt_ist = parser.parse(ts).astimezone(pytz.timezone("Asia/Kolkata"))
-                                except Exception:
-                                    pass
+                        elif isinstance(ts, str):
+                            try:
+                                dt_ist = parser.parse(ts).astimezone(pytz.timezone("Asia/Kolkata"))
+                            except Exception:
+                                pass
                         if dt_ist is not None:
-                            od_datetimes.append(dt_ist.strftime("%Y-%m-%d %H:%M:%S %Z"))
+                            od_datetimes_set.add(dt_ist)
+                # Remove duplicates, sort, and format
+                od_datetimes = [dt.strftime("%Y-%m-%d %H:%M:%S") for dt in sorted(od_datetimes_set)]
                 # Count delivery attempts (OD + DL events)
                 delivery_attempts = 0
                 for ev in td.get("events", []):
                     if ev.get("eventType") in ("OD", "DL"):
                         delivery_attempts += 1
+                # Format pickup/delivery datetimes as IST (no offset, just local time)
+                pickup_dt_fmt = pickup_dt.strftime("%Y-%m-%d %H:%M:%S") if pickup_dt else ""
+                delivery_dt_fmt = delivery_dt.strftime("%Y-%m-%d %H:%M:%S") if delivery_dt else ""
                 records.append({
                     "tracking_number": tracking_number,
                     "payment_type": payment_type,
-                    "pickup_datetime_ist": pickup_dt,
-                    "delivery_datetime_ist": delivery_dt,
+                    "pickup_datetime_ist": pickup_dt_fmt,
+                    "delivery_datetime_ist": delivery_dt_fmt,
                     "days_taken": (delivery_dt - pickup_dt).days if pickup_dt and delivery_dt else None,
                     "shipment_weight_kg": shipment_weight_kg,
                     "pickup_pincode": pickup_pincode,

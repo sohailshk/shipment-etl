@@ -61,3 +61,20 @@ All actions, function calls, and errors will be logged here with timestamps.
 [2025-06-30 19:30:38] Detail CSV written to data/processed/detail.csv
 [2025-06-30 19:30:38] Summary CSV written to data/processed/summary.csv
 [2025-06-30 19:30:38] ETL pipeline completed successfully
+[2025-06-30 19:41:27] Starting transform(data)
+[2025-06-30 19:41:27] transform(data) complete. Shape: (1, 14)
+[2025-06-30 19:41:27] Starting transform(data)
+[2025-06-30 19:41:27] transform(data) complete. Shape: (1, 14)
+[2025-06-30 19:41:27] Starting transform(data)
+[2025-06-30 19:41:27] transform(data) complete. Shape: (1, 14)
+[2025-06-30 19:41:27] Starting transform(data)
+[2025-06-30 19:41:27] transform(data) complete. Shape: (1, 14)
+[2025-06-30 19:46:28] ETL pipeline started
+[2025-06-30 19:46:28] Starting extract(path=data/raw/shipments.json)
+[2025-06-30 19:46:28] extract(path=data/raw/shipments.json) succeeded with 99 records.
+[2025-06-30 19:46:28] Starting transform(data)
+[2025-06-30 19:46:28] transform(data) complete. Shape: (99, 14)
+[2025-06-30 19:46:28] Starting load(detail_out=data/processed/detail.csv, summary_out=data/processed/summary.csv)
+[2025-06-30 19:46:28] Detail CSV written to data/processed/detail.csv
+[2025-06-30 19:46:28] Summary CSV written to data/processed/summary.csv
+[2025-06-30 19:46:28] ETL pipeline completed successfully
