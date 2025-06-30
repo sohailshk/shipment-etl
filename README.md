@@ -125,8 +125,6 @@ requirements.txt
 ```
 
 ## Contact & Attribution
-Author: [Your Name]
-Assignment for [Course/Company, if applicable]
-
+Author: [Mohammad Sohail]
 ---
 This project follows best practices for Python ETL pipelines, including modularity, logging, and test-driven development. For questions or contributions, please open an issue or pull request.
