@@ -54,8 +54,8 @@ def transform(data: dict) -> pd.DataFrame:
                         pickup_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
                     if dt.get("type") == "ACTUAL_DELIVERY":
                         delivery_dt = parser.parse(dt["dateOrTimestamp"]).astimezone(pytz.timezone("Asia/Kolkata"))
-                # Out for Delivery datetimes (all OD events, unique, sorted)
-                od_datetimes_set = set()
+                # Out for Delivery datetime: only the latest OD event (best practice)
+                od_datetimes = []
                 for ev in td.get("events", []):
                     if ev.get("eventType") == "OD":
                         ts = ev.get("timestamp")
@@ -69,9 +69,12 @@ def transform(data: dict) -> pd.DataFrame:
                             except Exception:
                                 pass
                         if dt_ist is not None:
-                            od_datetimes_set.add(dt_ist)
-                # Remove duplicates, sort, and format
-                od_datetimes = [dt.strftime("%Y-%m-%d %H:%M:%S") for dt in sorted(od_datetimes_set)]
+                            od_datetimes.append(dt_ist)
+                # If multiple, take only the latest (most recent) OD event
+                od_datetime_str = ""
+                if od_datetimes:
+                    latest_od = max(set(od_datetimes))  # deduplicate, then take max
+                    od_datetime_str = latest_od.strftime("%Y-%m-%d %H:%M:%S")
                 # Count delivery attempts (OD + DL events)
                 delivery_attempts = 0
                 for ev in td.get("events", []):
@@ -93,7 +96,7 @@ def transform(data: dict) -> pd.DataFrame:
                     "drop_pincode": drop_pincode,
                     "drop_city": drop_city,
                     "drop_state": drop_state,
-                    "out_for_delivery_datetimes": ";".join(od_datetimes),
+                    "out_for_delivery_datetimes": od_datetime_str,
                     "delivery_attempts_count": delivery_attempts
                 })
         df = pd.DataFrame(records)
